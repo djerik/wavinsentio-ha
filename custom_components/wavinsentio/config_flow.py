@@ -38,10 +38,11 @@ class WavinSentioConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_location(self, user_input: Optional[Dict[str, Any]] = None):
         """Second step in config flow to choose the location"""
         errors: Dict[str, str] = {}
-        api = WavinSentio(self.data[CONF_USERNAME], self.data[CONF_PASSWORD])
-        api.get_locations()
+        api = await self.hass.async_add_executor_job(
+            WavinSentio, self.data[CONF_USERNAME], self.data[CONF_PASSWORD]
+        )
 
-        locations = api.get_locations()
+        locations = await self.hass.async_add_executor_job(api.get_locations)
 
         all_locations = {l["ulc"]: l["name"] for l in locations}
 
