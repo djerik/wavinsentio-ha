@@ -1,0 +1,21 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "data": {
+          "username": "Sentio Username",
+          "password": "Password"
+        },
+        "description": "Enter your Wavin Sentio credentials.",
+        "title": "Authentication"
+      },
+      "location": {
+        "data": {
+          "CONF_LOCATION_ID": "Choose Location"
+        },
+        "description": "Please choose the location for this HA",
+        "title": "Setup Location"
+      }
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "codeowners": ["@djerik"],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/djerik/wavinsentio-ha",
+  "domain": "wavinsentio",
+  "name": "Wavin Sentio",
+  "requirements": ["WavinSentio==0.2.1"]
+}
