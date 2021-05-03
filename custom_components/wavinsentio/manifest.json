@@ -3,9 +3,10 @@
   "config_flow": true,
   "dependencies": [],
   "documentation": "https://github.com/djerik/wavinsentio-ha",
+  "issue_tracker": "https://github.com/djerik/wavinsentio-ha/issues",
   "domain": "wavinsentio",
   "name": "Wavin Sentio",
-  "requirements": ["WavinSentio==0.2.1"],
+  "requirements": ["WavinSentio==0.2.1"], 
   "version": "0.1.0",
   "iot_class": "cloud_polling"
 }
