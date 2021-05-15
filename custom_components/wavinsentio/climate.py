@@ -127,7 +127,7 @@ class WavinSentioDataService:
 
     def set_new_temperature(self, code, temperature):
         _LOGGER.debug("Setting temperature: %s", temperature)
-        self.api.set_temperature(code, temperature)
+        self.hass.async_add_executor_job(self.api.set_temperature, code, temperature)
 
     def set_new_profile(self, code, profile):
         _LOGGER.debug("Setting profile: %s", profile)
