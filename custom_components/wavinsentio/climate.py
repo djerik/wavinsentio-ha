@@ -329,3 +329,18 @@ class WavinSentioEntity(CoordinatorEntity, ClimateEntity):
                 # "via_device": (hue.DOMAIN, self.api.bridgeid),
             }
         return
+        
+    @property
+    def extra_state_attributes(self):
+        """Return the state attributes."""
+        
+        # Extract air and floor temp and store in extended attributes.
+        # Overrides any super extra_state_attributes
+        
+        attrs = {}
+        temp_room = self._dataservice.get_room(self._roomcode)
+        if temp_room is not None:
+            attrs["current_temperature_floor"] = self._dataservice.get_room(self._roomcode)["tempFloorCurrent"]
+            attrs["current_temperature_air"] = self._dataservice.get_room(self._roomcode)["tempAirCurrent"]
+
+        return attrs
