@@ -13,3 +13,6 @@ Afterwards you can go to the Integrations sections and click the add integration
 - Second step will ask you to choose the location (controller) you want to add
 
 It will automatically add all the thermostats to your Home Assistant installation and show each one as thermostats in the standard lovelace thermostat UI.
+
+## Changelog
+- 2021-12-04 Added support for reauth and outdoor temperature sensor
