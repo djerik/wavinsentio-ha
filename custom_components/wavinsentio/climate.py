@@ -1,54 +1,37 @@
 from datetime import timedelta
 import logging
-import re
-from typing import Any, Callable, Dict, Optional
-from requests.exceptions import ConnectTimeout, HTTPError
 
-from homeassistant import config_entries, core
 from homeassistant.core import callback
-from homeassistant.components.climate import ClimateEntity, PLATFORM_SCHEMA
+from homeassistant.components.climate import ClimateEntity
 from homeassistant.const import CONF_USERNAME, CONF_PASSWORD
 
 from homeassistant.const import (
-    ATTR_UNIT_OF_MEASUREMENT,
     ATTR_TEMPERATURE,
-    STATE_ON,
-    STATE_OFF,
-    STATE_UNKNOWN,
     TEMP_CELSIUS,
-    PRECISION_WHOLE,
-    PRECISION_TENTHS,
 )
 
 from homeassistant.components.climate.const import (
     HVAC_MODE_HEAT,
     HVAC_MODE_OFF,
     CURRENT_HVAC_HEAT,
-    CURRENT_HVAC_OFF,
     CURRENT_HVAC_IDLE,
     SUPPORT_PRESET_MODE,
     SUPPORT_TARGET_TEMPERATURE,
 )
 
-from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.exceptions import ConfigEntryAuthFailed
 
 import homeassistant.helpers.config_validation as cv
-from homeassistant.helpers.entity import Entity
-from homeassistant.helpers.typing import (
-    ConfigType,
-    DiscoveryInfoType,
-    HomeAssistantType,
-)
+
 from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,
     DataUpdateCoordinator,
     UpdateFailed,
 )
-import voluptuous as vol
 
 from .const import DOMAIN, CONF_LOCATION_ID
 
-from wavinsentio.wavinsentio import WavinSentio
+from wavinsentio.wavinsentio import WavinSentio, UnauthorizedException
 
 PRESET_MODES = {
     "Eco": {"profile": "eco"},
@@ -64,15 +47,20 @@ UPDATE_DELAY = timedelta(seconds=120)
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    api = await hass.async_add_executor_job(
-        WavinSentio, entry.data[CONF_USERNAME], entry.data[CONF_PASSWORD]
-    )
+    try:
+        api = await hass.async_add_executor_job(
+            WavinSentio, entry.data[CONF_USERNAME], entry.data[CONF_PASSWORD]
+        )
+    except UnauthorizedException as err:
+        raise ConfigEntryAuthFailed(err) from err
 
     rooms = await hass.async_add_executor_job(
         api.get_rooms, entry.data[CONF_LOCATION_ID]
     )
 
-    dataservice = WavinSentioDataService(hass, api, entry.data[CONF_LOCATION_ID], rooms)
+    dataservice = WavinSentioClimateDataService(
+        hass, api, entry.data[CONF_LOCATION_ID], rooms
+    )
     dataservice.async_setup()
     await dataservice.coordinator.async_refresh()
 
@@ -82,8 +70,12 @@ async def async_setup_entry(hass, entry, async_add_entities):
         entities.append(ws)
     async_add_entities(entities)
 
+    hass.async_create_task(
+        hass.config_entries.async_forward_entry_setup(entry, "sensor")
+    )
 
-class WavinSentioDataService:
+
+class WavinSentioClimateDataService:
     """Get and update the latest data."""
 
     def __init__(self, hass, api, location_id, roomdata):
@@ -142,7 +134,6 @@ class WavinSentioEntity(CoordinatorEntity, ClimateEntity):
     def __init__(self, hass, room, dataservice):
         super().__init__(dataservice.coordinator)
         """Initialize the climate device."""
-        _LOGGER.info("Setting up Wavin Sentio component")
         self._name = room["name"]
         self._roomcode = room["code"]
         self._hvac_mode = (
@@ -329,18 +320,22 @@ class WavinSentioEntity(CoordinatorEntity, ClimateEntity):
                 # "via_device": (hue.DOMAIN, self.api.bridgeid),
             }
         return
-        
+
     @property
     def extra_state_attributes(self):
         """Return the state attributes."""
-        
+
         # Extract air and floor temp and store in extended attributes.
         # Overrides any super extra_state_attributes
-        
+
         attrs = {}
         temp_room = self._dataservice.get_room(self._roomcode)
         if temp_room is not None:
-            attrs["current_temperature_floor"] = self._dataservice.get_room(self._roomcode)["tempFloorCurrent"]
-            attrs["current_temperature_air"] = self._dataservice.get_room(self._roomcode)["tempAirCurrent"]
+            attrs["current_temperature_floor"] = self._dataservice.get_room(
+                self._roomcode
+            )["tempFloorCurrent"]
+            attrs["current_temperature_air"] = self._dataservice.get_room(
+                self._roomcode
+            )["tempAirCurrent"]
 
         return attrs

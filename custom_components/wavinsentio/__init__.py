@@ -1,6 +1,12 @@
 from homeassistant import config_entries, core
 
+from homeassistant.exceptions import ConfigEntryAuthFailed, Unauthorized
+
 from .const import DOMAIN
+
+from homeassistant.const import CONF_USERNAME, CONF_PASSWORD
+
+from wavinsentio.wavinsentio import WavinSentio, UnauthorizedException
 
 
 async def async_setup_entry(
@@ -17,6 +23,13 @@ async def async_setup_entry(
     hass.data[DOMAIN][entry.entry_id] = hass_data
 
     # Forward the setup to the sensor platform.
+    try:
+        api = await hass.async_add_executor_job(
+            WavinSentio, entry.data[CONF_USERNAME], entry.data[CONF_PASSWORD]
+        )
+    except UnauthorizedException as err:
+        raise ConfigEntryAuthFailed(err) from err
+
     hass.async_create_task(
         hass.config_entries.async_forward_entry_setup(entry, "climate")
     )

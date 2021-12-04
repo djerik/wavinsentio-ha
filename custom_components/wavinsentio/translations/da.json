@@ -9,6 +9,10 @@
         "description": "Udfyld dine Wavin Sentio login oplysninger.",
         "title": "Login"
       },
+      "reauth_confirm": {
+        "title": "[%key:common::config_flow::title::reauth%]",
+        "description": "Wavin Sentio integrationen kræver at du logger ind igen"
+      },
       "location": {
         "data": {
           "CONF_LOCATION_ID": "Vælg lokation"
@@ -16,6 +20,12 @@
         "description": "Vælg lokationen for denne HA",
         "title": "Setup Lokation"
       }
+    },
+    "error": {
+      "auth_error": "Login fejlede, check brugernavn og password."
+    },
+    "abort": {
+      "reauth_successful": "Nye login oplysninger gemt"
     }
   }
 }
