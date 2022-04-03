@@ -5,7 +5,7 @@
 - The controller must be added to a Wavin Sentio account. Both things are done via the Wavin Sentio app available in your app store.
 
 ## Installation
-Files are installed by downloading the files to your custom_components folder directly from here or by adding repository via HACS. Soon this repository will be available directly in HACS.
+Files are installed by downloading the files to your custom_components folder directly from here or by adding it via HACS.
 
 Afterwards you can go to the Integrations sections and click the add integration button. Search for Wavin and choose the newly added Wavin Sentio integration.
 
