@@ -15,5 +15,5 @@ Afterwards you can go to the Integrations sections and click the add integration
 It will automatically add all the thermostats to your Home Assistant installation and show each one as thermostats in the standard lovelace thermostat UI.
 
 ## Changelog
-- 2022-03-03 Added support for standby switch and refactored existing code
+- 2023-03-03 Added support for standby switch and refactored existing code
 - 2021-12-04 Added support for reauth and outdoor temperature sensor
