@@ -1,37 +1,21 @@
-from datetime import timedelta
-import logging
-
-from homeassistant.core import callback
-from homeassistant.components.climate import ClimateEntity
-from homeassistant.const import CONF_USERNAME, CONF_PASSWORD
+from homeassistant.components.climate import (
+    ClimateEntity,
+    HVACMode,
+    HVACAction,
+    ClimateEntityFeature,
+)
 
 from homeassistant.const import (
     ATTR_TEMPERATURE,
     TEMP_CELSIUS,
 )
 
-from homeassistant.components.climate.const import (
-    HVAC_MODE_HEAT,
-    HVAC_MODE_OFF,
-    CURRENT_HVAC_HEAT,
-    CURRENT_HVAC_IDLE,
-    SUPPORT_PRESET_MODE,
-    SUPPORT_TARGET_TEMPERATURE,
-)
-
-from homeassistant.exceptions import ConfigEntryAuthFailed
-
-import homeassistant.helpers.config_validation as cv
 
 from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,
-    DataUpdateCoordinator,
-    UpdateFailed,
 )
 
-from .const import DOMAIN, CONF_LOCATION_ID
-
-from wavinsentio.wavinsentio import WavinSentio, UnauthorizedException
+from .const import DOMAIN
 
 PRESET_MODES = {
     "Eco": {"profile": "eco"},
@@ -39,125 +23,38 @@ PRESET_MODES = {
     "Extracomfort": {"profile": "extra"},
 }
 
-SUPPORT_FLAGS = SUPPORT_TARGET_TEMPERATURE | SUPPORT_PRESET_MODE
-
-_LOGGER = logging.getLogger(__name__)
-
-UPDATE_DELAY = timedelta(seconds=120)
-
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    try:
-        api = await hass.async_add_executor_job(
-            WavinSentio, entry.data[CONF_USERNAME], entry.data[CONF_PASSWORD]
-        )
-    except UnauthorizedException as err:
-        raise ConfigEntryAuthFailed(err) from err
+    dataservice = hass.data[DOMAIN].get("coordinator")
 
-    rooms = await hass.async_add_executor_job(
-        api.get_rooms, entry.data[CONF_LOCATION_ID]
-    )
-
-    dataservice = WavinSentioClimateDataService(
-        hass, api, entry.data[CONF_LOCATION_ID], rooms
-    )
-    dataservice.async_setup()
-    await dataservice.coordinator.async_refresh()
+    rooms = dataservice.get_rooms()
 
     entities = []
     for room in rooms:
-        ws = WavinSentioEntity(hass, room, dataservice)
+        ws = WavinSentioClimateEntity(hass, room, dataservice)
         entities.append(ws)
     async_add_entities(entities)
 
-    hass.async_create_task(
-        hass.config_entries.async_forward_entry_setup(entry, "sensor")
-    )
 
-
-class WavinSentioClimateDataService:
-    """Get and update the latest data."""
-
-    def __init__(self, hass, api, location_id, roomdata):
-        """Initialize the data object."""
-        self.api = api
-        self.location_id = location_id
-
-        self.roomdata = roomdata
-
-        self.hass = hass
-        self.coordinator = None
-
-    @callback
-    def async_setup(self):
-        """Coordinator creation."""
-        self.coordinator = DataUpdateCoordinator(
-            self.hass,
-            _LOGGER,
-            name="WavinSentioDataService",
-            update_method=self.async_update_data,
-            update_interval=self.update_interval,
-        )
-
-    @property
-    def update_interval(self):
-        return UPDATE_DELAY
-
-    async def async_update_data(self):
-        try:
-            self.roomdata = await self.hass.async_add_executor_job(
-                self.api.get_rooms, self.location_id
-            )
-        except KeyError as ex:
-            raise UpdateFailed("Missing overview data, skipping update") from ex
-
-    def get_room(self, code):
-        for entry in self.roomdata:
-            if code == entry["code"]:
-                return entry
-        return None
-
-    def set_new_temperature(self, code, temperature):
-        _LOGGER.debug("Setting temperature: %s", temperature)
-        self.hass.async_add_executor_job(self.api.set_temperature, code, temperature)
-
-    def set_new_profile(self, code, profile):
-        _LOGGER.debug("Setting profile: %s", profile)
-        self.hass.async_add_executor_job(self.api.set_profile, code, profile)
-
-
-class WavinSentioEntity(CoordinatorEntity, ClimateEntity):
-    """Representation of a Wavin Sentio device."""
-
-    # mode_map = {"prog": STATE_AUTO, "fixed": STATE_MANUAL}
+class WavinSentioClimateEntity(CoordinatorEntity, ClimateEntity):
+    """Representation of a Wavin Sentio Climate device."""
 
     def __init__(self, hass, room, dataservice):
-        super().__init__(dataservice.coordinator)
+        super().__init__(dataservice)
         """Initialize the climate device."""
         self._name = room["name"]
         self._roomcode = room["code"]
-        self._hvac_mode = (
-            HVAC_MODE_HEAT if room["status"] == "heating" else HVAC_MODE_OFF
+        self._hvac_modes = [HVACMode.HEAT]
+        self._attr_supported_features = (
+            ClimateEntityFeature.TARGET_TEMPERATURE | ClimateEntityFeature.PRESET_MODE
         )
-        self._hvac_modes = [HVAC_MODE_HEAT]
-        self._support_flags = SUPPORT_FLAGS
         self._preset_mode = None
-        self._operation_list = None  # = [STATE_AUTO, STATE_MANUAL]
+        self._operation_list = None
         self._unit_of_measurement = TEMP_CELSIUS
         self._away = False
         self._on = True
-        self._current_operation_mode = None  # = STATE_MANUAL
+        self._current_operation_mode = None
         self._dataservice = dataservice
-
-    @property
-    def supported_features(self):
-        """Return the list of supported features."""
-        return SUPPORT_FLAGS
-
-    @property
-    def should_poll(self):
-        """Return the polling state."""
-        return True
 
     @property
     def name(self):
@@ -269,30 +166,20 @@ class WavinSentioEntity(CoordinatorEntity, ClimateEntity):
         """
         if not self.is_on:
             self._on = True
-        # if operation_mode == STATE_AUTO:
-        # self._device.set_temperature_to_auto()
-        #   self._current_operation_mode = operation_mode
-        #  return
-        # if operation_mode == STATE_MANUAL:
-        # self._device.set_temperature_to_manual()
-        #   self._current_operation_mode = operation_mode
 
     @property
     def hvac_action(self):
         """Return the current running hvac operation if supported"""
         temp_room = self._dataservice.get_room(self._roomcode)
         if temp_room["status"] == "heating":
-            return CURRENT_HVAC_HEAT
-        return CURRENT_HVAC_IDLE
+            return HVACAction.HEATING
+        return HVACAction.IDLE
 
     @property
     def hvac_mode(self):
         temp_room = self._dataservice.get_room(self._roomcode)
-        self._hvac_mode = (
-            HVAC_MODE_HEAT if temp_room["status"] == "heating" else HVAC_MODE_OFF
-        )
-        # Return current operation mode ie. heat, cool, idle.
-        return self._hvac_mode
+        return HVACMode.HEAT if temp_room["status"] == "heating" else HVACMode.OFF
+        # return self._hvac_mode
 
     @property
     def hvac_modes(self):
@@ -315,27 +202,23 @@ class WavinSentioEntity(CoordinatorEntity, ClimateEntity):
                 },
                 "name": self._name,
                 "manufacturer": "Wavin",
-                "model": "Sentio"
-                # "sw_version": self.light.swversion,
-                # "via_device": (hue.DOMAIN, self.api.bridgeid),
+                "model": "Sentio",
             }
         return
 
     @property
     def extra_state_attributes(self):
         """Return the state attributes."""
-
         # Extract air and floor temp and store in extended attributes.
         # Overrides any super extra_state_attributes
-
         attrs = {}
         temp_room = self._dataservice.get_room(self._roomcode)
         if temp_room is not None:
-            attrs["current_temperature_floor"] = self._dataservice.get_room(
-                self._roomcode
-            )["tempFloorCurrent"]
-            attrs["current_temperature_air"] = self._dataservice.get_room(
-                self._roomcode
-            )["tempAirCurrent"]
+            attrs["current_temperature_floor"] = temp_room["tempFloorCurrent"]
+            attrs["current_temperature_air"] = temp_room["tempAirCurrent"]
+            if "peripheryBatteryLow" in temp_room["warnings"]:
+                attrs["low_battery"] = True
+            else:
+                attrs["low_battery"] = False
 
         return attrs

@@ -1,28 +1,29 @@
+import logging
+
 from homeassistant import config_entries, core
 
 from homeassistant.exceptions import ConfigEntryAuthFailed, Unauthorized
 
-from .const import DOMAIN
+from .const import DOMAIN, CONF_LOCATION_ID
 
 from homeassistant.const import CONF_USERNAME, CONF_PASSWORD
 
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+
 from wavinsentio.wavinsentio import WavinSentio, UnauthorizedException
+
+from datetime import timedelta
+
+_LOGGER = logging.getLogger(__name__)
+
+PLATFORMS: list[str] = ["climate", "sensor", "switch"]
 
 
 async def async_setup_entry(
     hass: core.HomeAssistant, entry: config_entries.ConfigEntry
 ) -> bool:
-    """Set up platform from a ConfigEntry."""
     hass.data.setdefault(DOMAIN, {})
-    hass_data = dict(entry.data)
-    # @TODO: Add setup code.
-    # Registers update listener to update config entry when options are updated.
-    # unsub_options_update_listener = entry.add_update_listener(options_update_listener)
-    # Store a reference to the unsubscribe function to cleanup if an entry is unloaded.
-    # hass_data["unsub_options_update_listener"] = unsub_options_update_listener
-    hass.data[DOMAIN][entry.entry_id] = hass_data
 
-    # Forward the setup to the sensor platform.
     try:
         api = await hass.async_add_executor_job(
             WavinSentio, entry.data[CONF_USERNAME], entry.data[CONF_PASSWORD]
@@ -30,9 +31,13 @@ async def async_setup_entry(
     except UnauthorizedException as err:
         raise ConfigEntryAuthFailed(err) from err
 
-    hass.async_create_task(
-        hass.config_entries.async_forward_entry_setup(entry, "climate")
-    )
+    coordinator = WavinSentioDataCoordinator(hass, api, entry.data[CONF_LOCATION_ID])
+    hass.data[DOMAIN]["coordinator"] = coordinator
+
+    await coordinator.async_config_entry_first_refresh()
+
+    hass.config_entries.async_setup_platforms(entry, PLATFORMS)
+
     return True
 
 
@@ -40,3 +45,57 @@ async def async_setup(hass: core.HomeAssistant, config: dict) -> bool:
     """Set up the Wavin Sentio component."""
     # @TODO: Add setup code.
     return True
+
+
+class WavinSentioDataCoordinator(DataUpdateCoordinator):
+    """Get and update the latest data."""
+
+    def __init__(self, hass, api, location_id):
+        super().__init__(
+            hass,
+            _LOGGER,
+            name="WavinSentioData",
+            update_interval=timedelta(seconds=120),
+        )
+        self.api = api
+        self.location_id = location_id
+        self.roomdata = None
+        self.location = None
+
+    async def _async_update_data(self):
+        try:
+            self.roomdata = await self.hass.async_add_executor_job(
+                self.api.get_rooms, self.location_id
+            )
+
+            self.location = await self.hass.async_add_executor_job(
+                self.api.get_location, self.location_id
+            )
+        except KeyError as ex:
+            raise UpdateFailed("Problems calling Wavin Sentio") from ex
+
+    def get_rooms(self):
+        return self.roomdata
+
+    def get_room(self, code):
+        for entry in self.roomdata:
+            if code == entry["code"]:
+                return entry
+        return None
+
+    def set_new_temperature(self, code, temperature):
+        _LOGGER.debug("Setting temperature: %s", temperature)
+        self.hass.async_add_executor_job(self.api.set_temperature, code, temperature)
+
+    def set_new_profile(self, code, profile):
+        _LOGGER.debug("Setting profile: %s", profile)
+        self.hass.async_add_executor_job(self.api.set_profile, code, profile)
+
+    def turn_on_standby(self):
+        self.hass.async_add_executor_job(self.api.turn_on_standby, self.location_id)
+
+    def turn_off_standby(self):
+        self.hass.async_add_executor_job(self.api.turn_off_standby, self.location_id)
+
+    def get_location(self):
+        return self.location
