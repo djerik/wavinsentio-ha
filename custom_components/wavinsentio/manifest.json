@@ -1,12 +1,12 @@
 {
+  "domain": "wavinsentio",
+  "name": "Wavin Sentio",
   "codeowners": ["@djerik"],
   "config_flow": true,
   "dependencies": [],
   "documentation": "https://github.com/djerik/wavinsentio-ha",
+  "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/djerik/wavinsentio-ha/issues",
-  "domain": "wavinsentio",
-  "name": "Wavin Sentio",
   "requirements": ["WavinSentio==0.4.0"],
-  "version": "0.4.0",
-  "iot_class": "cloud_polling"
+  "version": "0.4.1"  
 }
