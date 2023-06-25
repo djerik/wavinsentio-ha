@@ -7,7 +7,7 @@ from homeassistant.const import TEMP_CELSIUS
 
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
+from .const import DOMAIN, CONF_LOCATION_ID
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -15,7 +15,7 @@ UPDATE_DELAY = timedelta(seconds=120)
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    dataservice = hass.data[DOMAIN].get("coordinator")
+    dataservice = hass.data[DOMAIN].get("coordinator"+entry.data[CONF_LOCATION_ID])
 
     outdoor_temperature_sensor = WavinSentioOutdoorTemperatureSensor(dataservice)
 

@@ -15,7 +15,7 @@ from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,
 )
 
-from .const import DOMAIN
+from .const import DOMAIN, CONF_LOCATION_ID
 
 PRESET_MODES = {
     "Eco": {"profile": "eco"},
@@ -25,7 +25,7 @@ PRESET_MODES = {
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    dataservice = hass.data[DOMAIN].get("coordinator")
+    dataservice = hass.data[DOMAIN].get("coordinator"+entry.data[CONF_LOCATION_ID])
 
     rooms = dataservice.get_rooms()
 

@@ -1,10 +1,10 @@
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.components.switch import SwitchEntity, SwitchDeviceClass
-from .const import DOMAIN
+from .const import DOMAIN, CONF_LOCATION_ID
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    dataservice = hass.data[DOMAIN].get("coordinator")
+    dataservice = hass.data[DOMAIN].get("coordinator"+entry.data[CONF_LOCATION_ID])
     entities = []
     entities.append(WavinSentioStandbySwitchEntity(dataservice))
     async_add_entities(entities)

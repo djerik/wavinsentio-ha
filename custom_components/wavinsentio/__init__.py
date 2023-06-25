@@ -32,7 +32,7 @@ async def async_setup_entry(
         raise ConfigEntryAuthFailed(err) from err
 
     coordinator = WavinSentioDataCoordinator(hass, api, entry.data[CONF_LOCATION_ID])
-    hass.data[DOMAIN]["coordinator"] = coordinator
+    hass.data[DOMAIN]["coordinator"+entry.data[CONF_LOCATION_ID]] = coordinator
 
     await coordinator.async_config_entry_first_refresh()
 
