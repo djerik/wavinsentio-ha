@@ -16,3 +16,4 @@ It will automatically add all the thermostats to your Home Assistant installatio
 
 ## Changelog
 - 2021-12-04 Added support for reauth and outdoor temperature sensor
+- 2023-06-25 Fixed bug when having multiple Wavin Sentio controllers same HA instance.
