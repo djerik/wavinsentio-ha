@@ -25,7 +25,7 @@ PRESET_MODES = {
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    dataservice = hass.data[DOMAIN].get("coordinator"+entry.data[CONF_LOCATION_ID])
+    dataservice = hass.data[DOMAIN].get("coordinator" + entry.data[CONF_LOCATION_ID])
 
     rooms = dataservice.get_rooms()
 
@@ -144,7 +144,7 @@ class WavinSentioClimateEntity(CoordinatorEntity, ClimateEntity):
     async def async_set_temperature(self, **kwargs):
         """Set new target temperatures."""
         if kwargs.get(ATTR_TEMPERATURE) is not None:
-            self._dataservice.set_new_temperature(
+            await self._dataservice.set_new_temperature(
                 self._roomcode, kwargs.get(ATTR_TEMPERATURE)
             )
             await self.coordinator.async_request_refresh()

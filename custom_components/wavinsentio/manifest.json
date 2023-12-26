@@ -7,6 +7,6 @@
   "documentation": "https://github.com/djerik/wavinsentio-ha",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/djerik/wavinsentio-ha/issues",
-  "requirements": ["WavinSentio==0.4.0"],
-  "version": "0.4.2"
+  "requirements": ["WavinSentio==0.4.1"],
+  "version": "0.4.3"
 }

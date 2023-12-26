@@ -32,7 +32,7 @@ async def async_setup_entry(
         raise ConfigEntryAuthFailed(err) from err
 
     coordinator = WavinSentioDataCoordinator(hass, api, entry.data[CONF_LOCATION_ID])
-    hass.data[DOMAIN]["coordinator"+entry.data[CONF_LOCATION_ID]] = coordinator
+    hass.data[DOMAIN]["coordinator" + entry.data[CONF_LOCATION_ID]] = coordinator
 
     await coordinator.async_config_entry_first_refresh()
 
@@ -85,7 +85,9 @@ class WavinSentioDataCoordinator(DataUpdateCoordinator):
 
     def set_new_temperature(self, code, temperature):
         _LOGGER.debug("Setting temperature: %s", temperature)
-        self.hass.async_add_executor_job(self.api.set_temperature, code, temperature)
+        return self.hass.async_add_executor_job(
+            self.api.set_temperature, code, temperature
+        )
 
     def set_new_profile(self, code, profile):
         _LOGGER.debug("Setting profile: %s", profile)
