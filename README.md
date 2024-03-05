@@ -15,6 +15,7 @@ Afterwards you can go to the Integrations sections and click the add integration
 It will automatically add all the thermostats to your Home Assistant installation and show each one as thermostats in the standard lovelace thermostat UI.
 
 ## Changelog
+- 2024-03-05 Changed HVAC logic mode to always be heating
 - 2023-12-26 Fixed bug due to new url in API
 - 2023-06-25 Fixed bug when having multiple Wavin Sentio controllers same HA instance.
 - 2023-05-06 Fixed bug regarding removed async_setup_platforms

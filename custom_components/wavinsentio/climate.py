@@ -177,9 +177,7 @@ class WavinSentioClimateEntity(CoordinatorEntity, ClimateEntity):
 
     @property
     def hvac_mode(self):
-        temp_room = self._dataservice.get_room(self._roomcode)
-        return HVACMode.HEAT if temp_room["status"] == "heating" else HVACMode.OFF
-        # return self._hvac_mode
+        return HVACMode.HEAT
 
     @property
     def hvac_modes(self):
