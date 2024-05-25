@@ -7,7 +7,7 @@ from homeassistant.components.climate import (
 
 from homeassistant.const import (
     ATTR_TEMPERATURE,
-    UnitOfTemperature,  # Updated import
+    UnitOfTemperature,
 )
 
 from homeassistant.helpers.update_coordinator import (
