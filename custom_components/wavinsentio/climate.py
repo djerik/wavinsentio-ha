@@ -7,9 +7,8 @@ from homeassistant.components.climate import (
 
 from homeassistant.const import (
     ATTR_TEMPERATURE,
-    TEMP_CELSIUS,
+    UnitOfTemperature,  # Updated import
 )
-
 
 from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,
@@ -23,7 +22,6 @@ PRESET_MODES = {
     "Extracomfort": {"profile": "extra"},
 }
 
-
 async def async_setup_entry(hass, entry, async_add_entities):
     dataservice = hass.data[DOMAIN].get("coordinator" + entry.data[CONF_LOCATION_ID])
 
@@ -34,7 +32,6 @@ async def async_setup_entry(hass, entry, async_add_entities):
         ws = WavinSentioClimateEntity(hass, room, dataservice)
         entities.append(ws)
     async_add_entities(entities)
-
 
 class WavinSentioClimateEntity(CoordinatorEntity, ClimateEntity):
     """Representation of a Wavin Sentio Climate device."""
@@ -50,7 +47,7 @@ class WavinSentioClimateEntity(CoordinatorEntity, ClimateEntity):
         )
         self._preset_mode = None
         self._operation_list = None
-        self._unit_of_measurement = TEMP_CELSIUS
+        self._unit_of_measurement = UnitOfTemperature.CELSIUS 
         self._away = False
         self._on = True
         self._current_operation_mode = None
