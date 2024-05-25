@@ -15,7 +15,7 @@ UPDATE_DELAY = timedelta(seconds=120)
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    dataservice = hass.data[DOMAIN].get("coordinator" + entry.data[CONF_LOCATION_ID])
+    dataservice = hass.data[DOMAIN].get("coordinator"+entry.data[CONF_LOCATION_ID])
 
     outdoor_temperature_sensor = WavinSentioOutdoorTemperatureSensor(dataservice)
 
