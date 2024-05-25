@@ -3,7 +3,7 @@ import logging
 
 from homeassistant.components.sensor import SensorEntity
 
-from homeassistant.const import TEMP_CELSIUS
+from homeassistant.const import UnitOfTemperature
 
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -15,7 +15,7 @@ UPDATE_DELAY = timedelta(seconds=120)
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    dataservice = hass.data[DOMAIN].get("coordinator"+entry.data[CONF_LOCATION_ID])
+    dataservice = hass.data[DOMAIN].get("coordinator" + entry.data[CONF_LOCATION_ID])
 
     outdoor_temperature_sensor = WavinSentioOutdoorTemperatureSensor(dataservice)
 
@@ -50,7 +50,7 @@ class WavinSentioOutdoorTemperatureSensor(CoordinatorEntity, SensorEntity):
     @property
     def unit_of_measurement(self) -> str:
         """Return the unit of measurement."""
-        return TEMP_CELSIUS
+        return UnitOfTemperature.CELSIUS  # Updated constant usage
 
     @property
     def device_class(self):
