@@ -4,13 +4,13 @@ from homeassistant import config_entries, core
 
 from homeassistant.exceptions import ConfigEntryAuthFailed, Unauthorized
 
-from .const import DOMAIN, CONF_LOCATION_ID
+from .const import DOMAIN, CONF_DEVICE_NAME
 
-from homeassistant.const import CONF_USERNAME, CONF_PASSWORD
+from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
 
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from wavinsentio.wavinsentio import WavinSentio, UnauthorizedException
+from wavinsentio.wavinsentio import Device, Room, WavinSentio, UnauthorizedException
 
 from datetime import timedelta
 
@@ -26,13 +26,13 @@ async def async_setup_entry(
 
     try:
         api = await hass.async_add_executor_job(
-            WavinSentio, entry.data[CONF_USERNAME], entry.data[CONF_PASSWORD]
+            WavinSentio, entry.data[CONF_EMAIL], entry.data[CONF_PASSWORD]
         )
     except UnauthorizedException as err:
         raise ConfigEntryAuthFailed(err) from err
 
-    coordinator = WavinSentioDataCoordinator(hass, api, entry.data[CONF_LOCATION_ID])
-    hass.data[DOMAIN]["coordinator" + entry.data[CONF_LOCATION_ID]] = coordinator
+    coordinator = WavinSentioDataCoordinator(hass, api, entry.data[CONF_DEVICE_NAME])
+    hass.data[DOMAIN]["coordinator" + entry.data[CONF_DEVICE_NAME]] = coordinator
 
     await coordinator.async_config_entry_first_refresh()
 
@@ -50,7 +50,7 @@ async def async_setup(hass: core.HomeAssistant, config: dict) -> bool:
 class WavinSentioDataCoordinator(DataUpdateCoordinator):
     """Get and update the latest data."""
 
-    def __init__(self, hass, api, location_id):
+    def __init__(self, hass, api:WavinSentio, device_name):
         super().__init__(
             hass,
             _LOGGER,
@@ -58,29 +58,33 @@ class WavinSentioDataCoordinator(DataUpdateCoordinator):
             update_interval=timedelta(seconds=120),
         )
         self.api = api
-        self.location_id = location_id
+        self.device_name = device_name
         self.roomdata = None
         self.location = None
 
     async def _async_update_data(self):
         try:
-            self.roomdata = await self.hass.async_add_executor_job(
-                self.api.get_rooms, self.location_id
-            )
 
-            self.location = await self.hass.async_add_executor_job(
-                self.api.get_location, self.location_id
+            #self.roomdata = await self.hass.async_add_executor_job(
+#                self.api.get_rooms, self.location_id
+            #)
+
+            self._device = await self.hass.async_add_executor_job(
+                self.api.get_device, self.device_name
             )
         except KeyError as ex:
             raise UpdateFailed("Problems calling Wavin Sentio") from ex
 
-    def get_rooms(self):
-        return self.roomdata
+    def get_device(self) -> Device:
+        return self._device
 
-    def get_room(self, code):
-        for entry in self.roomdata:
-            if code == entry["code"]:
-                return entry
+    def get_rooms(self):
+        return self.get_device().lastConfig.sentio.rooms
+
+    def get_room(self, id) -> Room:
+        for room in self.get_device().lastConfig.sentio.rooms:
+            if room.id == id:
+                return room
         return None
 
     def set_new_temperature(self, code, temperature):
@@ -99,5 +103,5 @@ class WavinSentioDataCoordinator(DataUpdateCoordinator):
     def turn_off_standby(self):
         self.hass.async_add_executor_job(self.api.turn_off_standby, self.location_id)
 
-    def get_location(self):
-        return self.location
+    def get_device(self) -> Device:
+        return self._device

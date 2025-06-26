@@ -1,10 +1,10 @@
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.components.switch import SwitchEntity, SwitchDeviceClass
-from .const import DOMAIN, CONF_LOCATION_ID
+from .const import DOMAIN, CONF_DEVICE_NAME
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    dataservice = hass.data[DOMAIN].get("coordinator"+entry.data[CONF_LOCATION_ID])
+    dataservice = hass.data[DOMAIN].get("coordinator"+entry.data[CONF_DEVICE_NAME])
     entities = []
     entities.append(WavinSentioStandbySwitchEntity(dataservice))
     async_add_entities(entities)
@@ -25,7 +25,7 @@ class WavinSentioStandbySwitchEntity(CoordinatorEntity, SwitchEntity):
     @property
     def is_on(self):
         """Return true if the mode equals standby"""
-        return self._dataservice.get_location()["attributes"]["mode"] == "standby"
+        return self._dataservice.get_device().lastConfig.sentio.standbyMode == "STANDBY_MODE_ON"
 
     async def async_turn_on(self, **kwargs):
         self._dataservice.turn_on_standby()
@@ -38,12 +38,12 @@ class WavinSentioStandbySwitchEntity(CoordinatorEntity, SwitchEntity):
     @property
     def unique_id(self):
         """Return the ID of this device."""
-        return str(self._dataservice.get_location()["serialNumber"]) + "-Standby"
+        return str(self._dataservice.get_device().name ) + "-Standby"
 
     @property
     def device_info(self):
-        temp_location = self._dataservice.get_location()
-        if temp_location is not None:
+        temp_device = self._dataservice.get_device()
+        if temp_device is not None:
             return {
                 "identifiers": {
                     # Serial numbers are unique identifiers within a specific domain

@@ -7,7 +7,7 @@ from homeassistant.const import UnitOfTemperature
 
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, CONF_LOCATION_ID
+from .const import DOMAIN, CONF_DEVICE_NAME
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -15,7 +15,7 @@ UPDATE_DELAY = timedelta(seconds=120)
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    dataservice = hass.data[DOMAIN].get("coordinator"+entry.data[CONF_LOCATION_ID])
+    dataservice = hass.data[DOMAIN].get("coordinator"+entry.data[CONF_DEVICE_NAME])
 
     outdoor_temperature_sensor = WavinSentioOutdoorTemperatureSensor(dataservice)
 
@@ -42,9 +42,7 @@ class WavinSentioOutdoorTemperatureSensor(CoordinatorEntity, SensorEntity):
     @property
     def state(self):
         """Return the state of the sensor."""
-        self._state = self._dataservice.get_location()["attributes"]["outdoor"][
-            "temperature"
-        ]
+        self._state = self._dataservice.get_device().outdoorTemperature
         return self._state
 
     @property
@@ -59,12 +57,12 @@ class WavinSentioOutdoorTemperatureSensor(CoordinatorEntity, SensorEntity):
     @property
     def unique_id(self):
         """Return the ID of this device."""
-        return self._dataservice.get_location()["serialNumber"]
+        return self._dataservice.get_device().serialNumber + "-OutdoorTemperature"
 
     @property
     def device_info(self):
-        temp_location = self._dataservice.get_location()
-        if temp_location is not None:
+        temp_device = self._dataservice.get_device()
+        if temp_device is not None:
             return {
                 "identifiers": {
                     # Serial numbers are unique identifiers within a specific domain

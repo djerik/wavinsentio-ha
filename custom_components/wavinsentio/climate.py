@@ -1,3 +1,6 @@
+from typing import cast
+from custom_components.wavinsentio import WavinSentioDataCoordinator
+from wavinsentio.wavinsentio import Room
 from homeassistant.components.climate import (
     ClimateEntity,
     HVACMode,
@@ -14,7 +17,7 @@ from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,
 )
 
-from .const import DOMAIN, CONF_LOCATION_ID
+from .const import DOMAIN, CONF_DEVICE_NAME
 
 PRESET_MODES = {
     "Eco": {"profile": "eco"},
@@ -23,9 +26,9 @@ PRESET_MODES = {
 }
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    dataservice = hass.data[DOMAIN].get("coordinator" + entry.data[CONF_LOCATION_ID])
+    dataservice = cast(WavinSentioDataCoordinator,hass.data[DOMAIN].get("coordinator" + entry.data[CONF_DEVICE_NAME]))
 
-    rooms = dataservice.get_rooms()
+    rooms = dataservice.get_device().lastConfig.sentio.rooms
 
     entities = []
     for room in rooms:
@@ -36,18 +39,18 @@ async def async_setup_entry(hass, entry, async_add_entities):
 class WavinSentioClimateEntity(CoordinatorEntity, ClimateEntity):
     """Representation of a Wavin Sentio Climate device."""
 
-    def __init__(self, hass, room, dataservice):
+    def __init__(self, hass, room : Room, dataservice: WavinSentioDataCoordinator):
         super().__init__(dataservice)
         """Initialize the climate device."""
-        self._name = room["name"]
-        self._roomcode = room["code"]
+        self._name = room.titlePersonalized
+        self._room_id = room.id
         self._hvac_modes = [HVACMode.HEAT]
         self._attr_supported_features = (
             ClimateEntityFeature.TARGET_TEMPERATURE | ClimateEntityFeature.PRESET_MODE
         )
         self._preset_mode = None
         self._operation_list = None
-        self._unit_of_measurement = UnitOfTemperature.CELSIUS 
+        self._unit_of_measurement = UnitOfTemperature.CELSIUS
         self._away = False
         self._on = True
         self._current_operation_mode = None
@@ -66,43 +69,51 @@ class WavinSentioClimateEntity(CoordinatorEntity, ClimateEntity):
     @property
     def current_temperature(self):
         """Return the current temperature."""
-        temp_room = self._dataservice.get_room(self._roomcode)
+        temp_room = self._dataservice.get_room(self._room_id)
         if temp_room is not None:
-            return self._dataservice.get_room(self._roomcode)["tempCurrent"]
+            return temp_room.airTemperature
+        return None
 
     @property
     def current_humidity(self):
         """Return the current humidity."""
-        temp_room = self._dataservice.get_room(self._roomcode)
+        temp_room = self._dataservice.get_room(self._room_id)
         if temp_room is not None:
-            return temp_room["humidityCurrent"]
+            return temp_room.humidity
+        return None
+
 
     @property
     def target_temperature(self):
         """Return the temperature we try to reach."""
-        temp_room = self._dataservice.get_room(self._roomcode)
+        temp_room = self._dataservice.get_room(self._room_id)
         if temp_room is not None:
-            return temp_room["tempDesired"]
+            return temp_room.setpointTemperature
+        return None
 
     @property
     def min_temp(self):
         """Return the minimum temperature."""
-        temp_room = self._dataservice.get_room(self._roomcode)
+        temp_room = self._dataservice.get_room(self._room_id)
         if temp_room is not None:
-            return temp_room["tempSpan"]["minimum"]
+            return temp_room.minSetpointTemperature
+        return None
 
     @property
     def max_temp(self):
         """Return the maximum temperature."""
-        temp_room = self._dataservice.get_room(self._roomcode)
+        temp_room = self._dataservice.get_room(self._room_id)
         if temp_room is not None:
-            return temp_room["tempSpan"]["maximum"]
+            return temp_room.maxSetpointTemperature
+        return None
 
     @property
     def preset_mode(self):
         """Return the current preset mode."""
-        temp_room = self._dataservice.get_room(self._roomcode)
+        temp_room = self._dataservice.get_room(self._room_id)
         if temp_room is not None:
+            return "Eco"
+        #TODO
             if temp_room["tempDesired"] == temp_room["tempEco"]:
                 return "Eco"
             if temp_room["tempDesired"] == temp_room["tempComfort"]:
@@ -119,7 +130,7 @@ class WavinSentioClimateEntity(CoordinatorEntity, ClimateEntity):
     async def async_set_preset_mode(self, preset_mode):
         """Set new target preset mode."""
         self._dataservice.set_new_profile(
-            self._roomcode, PRESET_MODES[preset_mode]["profile"]
+            self._room_id, PRESET_MODES[preset_mode]["profile"]
         )
         await self.coordinator.async_request_refresh()
 
@@ -142,7 +153,7 @@ class WavinSentioClimateEntity(CoordinatorEntity, ClimateEntity):
         """Set new target temperatures."""
         if kwargs.get(ATTR_TEMPERATURE) is not None:
             await self._dataservice.set_new_temperature(
-                self._roomcode, kwargs.get(ATTR_TEMPERATURE)
+                self._room_id, kwargs.get(ATTR_TEMPERATURE)
             )
             await self.coordinator.async_request_refresh()
 
@@ -167,8 +178,8 @@ class WavinSentioClimateEntity(CoordinatorEntity, ClimateEntity):
     @property
     def hvac_action(self):
         """Return the current running hvac operation if supported"""
-        temp_room = self._dataservice.get_room(self._roomcode)
-        if temp_room["status"] == "heating":
+        temp_room = self._dataservice.get_room(self._room_id)
+        if temp_room.temperatureState == "TEMPERATURE_STATE_HEATING":
             return HVACAction.HEATING
         return HVACAction.IDLE
 
@@ -184,11 +195,11 @@ class WavinSentioClimateEntity(CoordinatorEntity, ClimateEntity):
     @property
     def unique_id(self):
         """Return the ID of this device."""
-        return self._roomcode
+        return self._room_id
 
     @property
     def device_info(self):
-        temp_room = self._dataservice.get_room(self._roomcode)
+        temp_room = self._dataservice.get_room(self._room_id)
         if temp_room is not None:
             return {
                 "identifiers": {
@@ -207,13 +218,14 @@ class WavinSentioClimateEntity(CoordinatorEntity, ClimateEntity):
         # Extract air and floor temp and store in extended attributes.
         # Overrides any super extra_state_attributes
         attrs = {}
-        temp_room = self._dataservice.get_room(self._roomcode)
+        temp_room = self._dataservice.get_room(self._room_id)
         if temp_room is not None:
-            attrs["current_temperature_floor"] = temp_room["tempFloorCurrent"]
-            attrs["current_temperature_air"] = temp_room["tempAirCurrent"]
-            if "peripheryBatteryLow" in temp_room["warnings"]:
-                attrs["low_battery"] = True
-            else:
-                attrs["low_battery"] = False
+            attrs["current_temperature_floor"] = temp_room.floorTemperature
+            attrs["current_temperature_air"] = temp_room.airTemperature
+            #Todo
+            #if "peripheryBatteryLow" in temp_room["warnings"]:
+                #attrs["low_battery"] = True
+            #else:
+                #attrs["low_battery"] = False
 
         return attrs

@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "data": {
-          "username": "Sentio brugernavn",
+          "email": "Email",
           "password": "Kodeord"
         },
         "description": "Udfyld dine Wavin Sentio login oplysninger.",
