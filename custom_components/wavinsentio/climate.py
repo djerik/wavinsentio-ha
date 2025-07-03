@@ -1,23 +1,20 @@
+"""Climate platform for Wavin Sentio integration."""
+
 from typing import cast
-from custom_components.wavinsentio import WavinSentioDataCoordinator
-from wavinsentio.wavinsentio import Room
+
 from homeassistant.components.climate import (
     ClimateEntity,
-    HVACMode,
-    HVACAction,
     ClimateEntityFeature,
+    HVACAction,
+    HVACMode,
 )
+from homeassistant.const import ATTR_TEMPERATURE, UnitOfTemperature
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from wavinsentio.wavinsentio import Room
 
-from homeassistant.const import (
-    ATTR_TEMPERATURE,
-    UnitOfTemperature,
-)
-
-from homeassistant.helpers.update_coordinator import (
-    CoordinatorEntity,
-)
-
-from .const import DOMAIN, CONF_DEVICE_NAME
+from . import WavinSentioDataCoordinator
+from .const import CONF_DEVICE_NAME, DOMAIN
 
 PRESET_MODES = {
     "Eco": {"profile": "eco"},
@@ -25,7 +22,9 @@ PRESET_MODES = {
     "Extracomfort": {"profile": "extra"},
 }
 
-async def async_setup_entry(hass, entry, async_add_entities):
+
+async def async_setup_entry(hass: HomeAssistant, entry, async_add_entities):
+    """Set up Wavin Sentio climate entities from a config entry."""
     dataservice = cast(WavinSentioDataCoordinator,hass.data[DOMAIN].get("coordinator" + entry.data[CONF_DEVICE_NAME]))
 
     rooms = dataservice.get_device().lastConfig.sentio.rooms
@@ -39,9 +38,9 @@ async def async_setup_entry(hass, entry, async_add_entities):
 class WavinSentioClimateEntity(CoordinatorEntity, ClimateEntity):
     """Representation of a Wavin Sentio Climate device."""
 
-    def __init__(self, hass, room : Room, dataservice: WavinSentioDataCoordinator):
-        super().__init__(dataservice)
+    def __init__(self, hass: HomeAssistant, room: Room, dataservice: WavinSentioDataCoordinator) -> None:
         """Initialize the climate device."""
+        super().__init__(dataservice)
         self._name = room.titlePersonalized
         self._room_id = room.id
         self._hvac_modes = [HVACMode.HEAT]
@@ -113,13 +112,13 @@ class WavinSentioClimateEntity(CoordinatorEntity, ClimateEntity):
         temp_room = self._dataservice.get_room(self._room_id)
         if temp_room is not None:
             return "Eco"
-        #TODO
-            if temp_room["tempDesired"] == temp_room["tempEco"]:
-                return "Eco"
-            if temp_room["tempDesired"] == temp_room["tempComfort"]:
-                return "Comfort"
-            if temp_room["tempDesired"] == temp_room["tempExtra"]:
-                return "Extracomfort"
+        #TODO: Support other modes
+            #if temp_room["tempDesired"] == temp_room["tempEco"]:
+                #return "Eco"
+            #if temp_room["tempDesired"] == temp_room["tempComfort"]:
+                #return "Comfort"
+            #if temp_room["tempDesired"] == temp_room["tempExtra"]:
+                #return "Extracomfort"
         return self._preset_mode
 
     @property
@@ -167,17 +166,9 @@ class WavinSentioClimateEntity(CoordinatorEntity, ClimateEntity):
         self._away = False
         # self._device.set_temperature_to_manual()
 
-    def set_operation_mode(self, operation_mode):
-        """
-        Set new target operation mode.
-        Switch device on if was previously off
-        """
-        if not self.is_on:
-            self._on = True
-
     @property
     def hvac_action(self):
-        """Return the current running hvac operation if supported"""
+        """Return the current running hvac operation if supported."""
         temp_room = self._dataservice.get_room(self._room_id)
         if temp_room.temperatureState == "TEMPERATURE_STATE_HEATING":
             return HVACAction.HEATING
@@ -185,11 +176,12 @@ class WavinSentioClimateEntity(CoordinatorEntity, ClimateEntity):
 
     @property
     def hvac_mode(self):
+        """Return the current HVAC mode."""
         return HVACMode.HEAT
 
     @property
     def hvac_modes(self):
-        # Return the list of available operation modes.
+        """Return the list of available operation modes."""
         return self._hvac_modes
 
     @property
@@ -199,6 +191,7 @@ class WavinSentioClimateEntity(CoordinatorEntity, ClimateEntity):
 
     @property
     def device_info(self):
+        """Return device information for this climate entity."""
         temp_room = self._dataservice.get_room(self._room_id)
         if temp_room is not None:
             return {
@@ -210,7 +203,7 @@ class WavinSentioClimateEntity(CoordinatorEntity, ClimateEntity):
                 "manufacturer": "Wavin",
                 "model": "Sentio",
             }
-        return
+        return {}
 
     @property
     def extra_state_attributes(self):
@@ -222,7 +215,7 @@ class WavinSentioClimateEntity(CoordinatorEntity, ClimateEntity):
         if temp_room is not None:
             attrs["current_temperature_floor"] = temp_room.floorTemperature
             attrs["current_temperature_air"] = temp_room.airTemperature
-            #Todo
+            #TODO: Add support for low battery
             #if "peripheryBatteryLow" in temp_room["warnings"]:
                 #attrs["low_battery"] = True
             #else:

@@ -1,16 +1,15 @@
-import logging
+"""Config flow for the Wavin Sentio integration."""
 
-from typing import Any, Dict, Optional
+from typing import Any
+
+import voluptuous as vol
 
 from homeassistant import config_entries
-import homeassistant.helpers.config_validation as cv
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
-import voluptuous as vol
-from .wavinsentio import Device, WavinSentio, UnauthorizedException
+import homeassistant.helpers.config_validation as cv
+from wavinsentio.wavinsentio import UnauthorizedException, WavinSentio
 
 from .const import CONF_DEVICE_NAME, DOMAIN
-
-_LOGGER = logging.getLogger(__name__)
 
 AUTH_SCHEMA = vol.Schema(
     {vol.Required(CONF_EMAIL): cv.string, vol.Required(CONF_PASSWORD): cv.string}
@@ -20,14 +19,18 @@ AUTH_SCHEMA = vol.Schema(
 class WavinSentioConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Wavin Sentio config flow."""
 
-    data: Optional[Dict[str, Any]]
+    def __init__(self) -> None:
+        """Initialize the Hass config flow."""
+        super().__init__()
+        self._email = None
+        self._password = None
 
-    async def async_step_user(self, user_input: Optional[Dict[str, Any]] = None):
-        """Invoked when a user initiates a flow via the user interface."""
-        errors: Dict[str, str] = {}
+    async def async_step_user(self, user_input: dict[str, Any] | None = None):
+        """Invoke when a user initiates a flow via the user interface."""
+        errors: dict[str, str] = {}
         if user_input is not None:
-            self.data = user_input
-
+            self._email = user_input[CONF_EMAIL]
+            self._password = user_input[CONF_PASSWORD]
             # Return the form of the next step.
             return await self.async_step_device()
 
@@ -35,18 +38,19 @@ class WavinSentioConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="user", data_schema=AUTH_SCHEMA, errors=errors
         )
 
-    async def async_step_device(self, user_input: Optional[Dict[str, Any]] = None):
+    async def async_step_device(self, data: dict[str, Any] | None = None):
         """Second step in config flow to choose the device."""
-        if user_input is not None:
-            self.data[CONF_DEVICE_NAME] = user_input[CONF_DEVICE_NAME]
-            return await self.async_create_entry(title="Wavin Sentio", data=self.data)
+        if data is not None:
+            data[CONF_EMAIL] = self._email
+            data[CONF_PASSWORD] = self._password
+            return await self.async_create_entry(title="Wavin Sentio", data=data)
 
         errors = {}
         try:
             api = await self.hass.async_add_executor_job(
-                WavinSentio, self.data[CONF_EMAIL], self.data[CONF_PASSWORD]
+                WavinSentio, self._email, self._password
             )
-        except UnauthorizedException as err:
+        except UnauthorizedException:
             errors["base"] = "auth_error"
             return self.async_show_form(
                 step_id="user", data_schema=AUTH_SCHEMA, errors=errors
@@ -65,6 +69,7 @@ class WavinSentioConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_reauth(self, user_input=None):
+        """Handle re-authentication step in the config flow."""
         return await self.async_step_user()
 
     async def async_create_entry(self, title: str, data: dict) -> dict:
