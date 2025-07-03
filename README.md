@@ -22,3 +22,4 @@ It will automatically add all the thermostats to your Home Assistant installatio
 - 2023-05-06 Fixed bug regarding removed async_setup_platforms
 - 2023-03-03 Added support for standby switch and refactored existing code
 - 2021-12-04 Added support for reauth and outdoor temperature sensor
+- 2025-07-03 Major changes for support of v18 - only works with v18 firmware as of now
