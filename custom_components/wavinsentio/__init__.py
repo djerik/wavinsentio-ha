@@ -12,6 +12,7 @@ from wavinsentio.wavinsentio import (
     Room,
     StandbyMode,
     UnauthorizedException,
+    VacationMode,
     WavinSentio,
 )
 
@@ -19,7 +20,7 @@ from .const import CONF_DEVICE_NAME, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: list[str] = ["climate", "sensor", "switch"]
+PLATFORMS: list[str] = ["climate", "sensor", "switch","datetime"]
 
 async def async_setup_entry(hass: core.HomeAssistant, entry: config_entries.ConfigEntry) -> bool:
     """Set up Wavin Sentio from a config entry."""
@@ -105,3 +106,24 @@ class WavinSentioDataCoordinator(DataUpdateCoordinator):
     def turn_off_standby(self):
         """Turn off standby mode for the device."""
         self.hass.async_add_executor_job(self.api.set_standby_mode, self.device_name, StandbyMode.STANDBY_MODE_OFF)
+
+    def turn_on_vacation_mode_device(self):
+        """Turn on vacation mode for the device."""
+        self.hass.async_add_executor_job(self.api.set_vacation_mode, self.device_name, VacationMode.VACATION_MODE_ON)
+
+    def turn_off_vacation_mode_device(self):
+        """Turn off vaction mode for the device."""
+        self.hass.async_add_executor_job(self.api.set_vacation_mode, self.device_name, VacationMode.VACATION_MODE_OFF)
+
+    def turn_on_vacation_mode_room(self, room_id: int):
+        """Turn on vacation mode for the room."""
+        self.hass.async_add_executor_job(self.api.set_vacation_mode_room, self.device_name, room_id, VacationMode.VACATION_MODE_ON)
+
+    def turn_off_vacation_mode_room(self, room_id: int):
+        """Turn off vacation mode for the room."""
+        self.hass.async_add_executor_job(self.api.set_vacation_mode_room, self.device_name, room_id, VacationMode.VACATION_MODE_OFF)
+
+    def set_vacation_mode_until(self, value):
+        """Set the vacation mode until value."""
+        _LOGGER.debug("Setting vacation mode until: %s", value)
+        return self.hass.async_add_executor_job(self.api.set_vacation_mode_until, self.device_name, value)
