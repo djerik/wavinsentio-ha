@@ -22,11 +22,11 @@ async def async_setup_entry(hass: HomeAssistant, entry, async_add_entities):
     dataservice = hass.data[DOMAIN].get("coordinator"+entry.data[CONF_DEVICE_NAME])
 
 
-    if not dataservice or not dataservice.get_device().outdoorTemperatureSensors:
+    if not dataservice or not dataservice.get_device().lastConfig.sentio.outdoorTemperatureSensors:
         return
 
     entities = [(WavinSentioOutdoorTemperatureSensor(dataservice,outdoorTemperatureSensor))
-                for outdoorTemperatureSensor in dataservice.get_device().outdoorTemperatureSensors]
+                for outdoorTemperatureSensor in dataservice.get_device().lastConfig.sentio.outdoorTemperatureSensors]
 
     async_add_entities(entities)
 
@@ -49,7 +49,7 @@ class WavinSentioOutdoorTemperatureSensor(CoordinatorEntity, SensorEntity):
     @property
     def state(self):
         """Return the state of the sensor."""
-        for outdoorTemperatureSensor in self._dataservice.get_device().outdoorTemperatureSensors:
+        for outdoorTemperatureSensor in self._dataservice.get_device().lastConfig.sentio.outdoorTemperatureSensors:
             if outdoorTemperatureSensor.id == self._outdoorTemperatureSensor.id:
                 self._state = outdoorTemperatureSensor.outdoorTemperature
         return self._state

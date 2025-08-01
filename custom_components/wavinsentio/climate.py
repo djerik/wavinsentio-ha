@@ -23,6 +23,11 @@ PRESET_MODES = {
     "Vacation": {"type": "TYPE_VACATION"},
 }
 
+HVAC_MODES = {
+    "HC_MODE_HEATING": HVACMode.HEAT,
+    "HC_MODE_COOLING": HVACMode.COOL,
+}
+
 async def async_setup_entry(hass: HomeAssistant, entry, async_add_entities):
     """Set up Wavin Sentio climate entities from a config entry."""
     dataservice = cast(WavinSentioDataCoordinator,hass.data[DOMAIN].get("coordinator" + entry.data[CONF_DEVICE_NAME]))
@@ -43,16 +48,20 @@ class WavinSentioClimateEntity(CoordinatorEntity, ClimateEntity):
         super().__init__(dataservice)
         self._name = room.titlePersonalized
         self._room_id = room.id
-        self._hvac_modes = [HVACMode.HEAT]
+        availableHcModes = dataservice.get_device().lastConfig.sentio.availableHcModes
+        _hvac_modes = []
+        for mode in availableHcModes:
+            if mode == HCMode.HC_MODE_HEATING.value:
+                _hvac_modes.append(HVACMode.HEAT)
+            elif mode == HCMode.HC_MODE_COOLING.value:
+                _hvac_modes.append(HVACMode.COOL)
+        self._hvac_modes = _hvac_modes
         self._attr_supported_features = (
             ClimateEntityFeature.TARGET_TEMPERATURE | ClimateEntityFeature.PRESET_MODE
         )
         self._preset_mode = None
-        self._operation_list = None
         self._unit_of_measurement = UnitOfTemperature.CELSIUS
-        self._away = False
         self._on = True
-        self._current_operation_mode = None
         self._dataservice = dataservice
 
     @property
@@ -153,11 +162,6 @@ class WavinSentioClimateEntity(CoordinatorEntity, ClimateEntity):
         await self.coordinator.async_request_refresh()
 
     @property
-    def is_away_mode_on(self):
-        """Return if away mode is on."""
-        return self._away
-
-    @property
     def is_on(self):
         """Return true if the device is on."""
         return self._on
@@ -178,16 +182,6 @@ class WavinSentioClimateEntity(CoordinatorEntity, ClimateEntity):
                 self._room_id, kwargs.get(ATTR_TEMPERATURE)
             )
             await self.coordinator.async_request_refresh()
-
-    def turn_away_mode_on(self):
-        """Turn away mode on."""
-        self._away = True
-        # self._device.set_location_to_frost()
-
-    def turn_away_mode_off(self):
-        """Turn away mode off."""
-        self._away = False
-        # self._device.set_temperature_to_manual()
 
     @property
     def hvac_action(self):
@@ -212,6 +206,10 @@ class WavinSentioClimateEntity(CoordinatorEntity, ClimateEntity):
     def hvac_modes(self):
         """Return the list of available operation modes."""
         return self._hvac_modes
+
+    async def async_set_hvac_mode(self, hvac_mode):
+        """Set new target hvac mode."""
+        raise ValueError("You cannot set the HVAC mode directly.")
 
     @property
     def unique_id(self):
