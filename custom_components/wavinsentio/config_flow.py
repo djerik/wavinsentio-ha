@@ -24,6 +24,7 @@ class WavinSentioConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         super().__init__()
         self._email = None
         self._password = None
+        self._devices = None
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None):
         """Invoke when a user initiates a flow via the user interface."""
@@ -43,7 +44,11 @@ class WavinSentioConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if data is not None:
             data[CONF_EMAIL] = self._email
             data[CONF_PASSWORD] = self._password
-            return await self.async_create_entry(title="Wavin Sentio", data=data)
+            for device in self._devices:
+                if device.name == data[CONF_DEVICE_NAME]:
+                    device_name = device.lastConfig.sentio.titlePersonalized
+                    break
+            return await self.async_create_entry(title=device_name, data=data)
 
         errors = {}
         try:
@@ -56,9 +61,9 @@ class WavinSentioConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 step_id="user", data_schema=AUTH_SCHEMA, errors=errors
             )
 
-        devices = await self.hass.async_add_executor_job(api.get_devices)
+        self._devices  = await self.hass.async_add_executor_job(api.get_devices)
 
-        all_devices = {d.name:d.lastConfig.sentio.titlePersonalized for d in devices}
+        all_devices = {d.name:d.lastConfig.sentio.titlePersonalized for d in self._devices}
 
         DEVICE_SCHEMA = vol.Schema(
             {vol.Optional(CONF_DEVICE_NAME): vol.In(all_devices)}
@@ -74,8 +79,6 @@ class WavinSentioConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_create_entry(self, title: str, data: dict) -> dict:
         """Create an oauth config entry or update existing entry for reauth."""
-        # TODO: This example supports only a single config entry. Consider
-        # any special handling needed for multiple config entries.
         existing_entry = await self.async_set_unique_id(data[CONF_DEVICE_NAME])
         if existing_entry:
             self.hass.config_entries.async_update_entry(existing_entry, data=data)

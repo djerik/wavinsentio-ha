@@ -11,17 +11,22 @@ from homeassistant.components.climate import (
 from homeassistant.const import ATTR_TEMPERATURE, UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
-from wavinsentio.wavinsentio import Room
+from wavinsentio.wavinsentio import HCMode, Room, StandbyMode, VacationMode
 
 from . import WavinSentioDataCoordinator
 from .const import CONF_DEVICE_NAME, DOMAIN
 
 PRESET_MODES = {
-    "Eco": {"profile": "eco"},
-    "Comfort": {"profile": "comfort"},
-    "Extracomfort": {"profile": "extra"},
+    "Eco": {"type": "TYPE_ECO"},
+    "Comfort": {"type": "TYPE_COMFORT"},
+    "Extracomfort": {"type": "TYPE_EXTRA_COMFORT"},
+    "Vacation": {"type": "TYPE_VACATION"},
 }
 
+HVAC_MODES = {
+    "HC_MODE_HEATING": HVACMode.HEAT,
+    "HC_MODE_COOLING": HVACMode.COOL,
+}
 
 async def async_setup_entry(hass: HomeAssistant, entry, async_add_entities):
     """Set up Wavin Sentio climate entities from a config entry."""
@@ -43,16 +48,20 @@ class WavinSentioClimateEntity(CoordinatorEntity, ClimateEntity):
         super().__init__(dataservice)
         self._name = room.titlePersonalized
         self._room_id = room.id
-        self._hvac_modes = [HVACMode.HEAT]
+        availableHcModes = dataservice.get_device().lastConfig.sentio.availableHcModes
+        _hvac_modes = []
+        for mode in availableHcModes:
+            if mode == HCMode.HC_MODE_HEATING.value:
+                _hvac_modes.append(HVACMode.HEAT)
+            elif mode == HCMode.HC_MODE_COOLING.value:
+                _hvac_modes.append(HVACMode.COOL)
+        self._hvac_modes = _hvac_modes
         self._attr_supported_features = (
             ClimateEntityFeature.TARGET_TEMPERATURE | ClimateEntityFeature.PRESET_MODE
         )
         self._preset_mode = None
-        self._operation_list = None
         self._unit_of_measurement = UnitOfTemperature.CELSIUS
-        self._away = False
         self._on = True
-        self._current_operation_mode = None
         self._dataservice = dataservice
 
     @property
@@ -80,7 +89,6 @@ class WavinSentioClimateEntity(CoordinatorEntity, ClimateEntity):
         if temp_room is not None:
             return temp_room.humidity
         return None
-
 
     @property
     def target_temperature(self):
@@ -110,16 +118,14 @@ class WavinSentioClimateEntity(CoordinatorEntity, ClimateEntity):
     def preset_mode(self):
         """Return the current preset mode."""
         temp_room = self._dataservice.get_room(self._room_id)
-        if temp_room is not None:
-            return "Eco"
-        #TODO: Support other modes
-            #if temp_room["tempDesired"] == temp_room["tempEco"]:
-                #return "Eco"
-            #if temp_room["tempDesired"] == temp_room["tempComfort"]:
-                #return "Comfort"
-            #if temp_room["tempDesired"] == temp_room["tempExtra"]:
-                #return "Extracomfort"
-        return self._preset_mode
+        if temp_room.vacationMode == VacationMode.VACATION_MODE_ON:
+            return "Vacation"
+        for preset in temp_room.temperaturePresets :
+            if preset.setpointTemperature == temp_room.setpointTemperature:
+                for mode, details in PRESET_MODES.items():
+                    if details.get("type") == preset.type:
+                        return mode
+        return None
 
     @property
     def preset_modes(self):
@@ -128,15 +134,32 @@ class WavinSentioClimateEntity(CoordinatorEntity, ClimateEntity):
 
     async def async_set_preset_mode(self, preset_mode):
         """Set new target preset mode."""
-        self._dataservice.set_new_profile(
-            self._room_id, PRESET_MODES[preset_mode]["profile"]
-        )
+        if preset_mode not in PRESET_MODES:
+            raise ValueError(f"Invalid preset mode: {preset_mode}")
+        if self._dataservice.get_device().lastConfig.sentio.standbyMode == StandbyMode.STANDBY_MODE_ON:
+            raise ValueError("Device is in standby mode, cannot set preset.")
+        if preset_mode == "Vacation" and self._dataservice.get_device().lastConfig.sentio.vacationSettings.vacationMode != VacationMode.VACATION_MODE_ON:
+            raise ValueError("Device is not in vacation mode, cannot set preset.")
+        if preset_mode == "Vacation":
+            self._dataservice.turn_on_vacation_mode_room(
+                self._room_id
+            )
+        else:
+            if self._dataservice.get_device().lastConfig.sentio.vacationSettings.vacationMode == VacationMode.VACATION_MODE_ON:
+                self._dataservice.turn_off_vacation_mode_room(
+                    self._room_id
+                )
+            temp_room = self._dataservice.get_room(self._room_id)
+            for mode, details in PRESET_MODES.items():
+                if mode == preset_mode:
+                    for preset in temp_room.temperaturePresets:
+                        if preset.type == details.get("type") and preset.hcMode == self._dataservice.get_device().lastConfig.sentio.hcMode.value:
+                            self._dataservice.set_new_temperature(
+                                self._room_id, preset.setpointTemperature
+                            )
+                            break
+                    break
         await self.coordinator.async_request_refresh()
-
-    @property
-    def is_away_mode_on(self):
-        """Return if away mode is on."""
-        return self._away
 
     @property
     def is_on(self):
@@ -150,21 +173,15 @@ class WavinSentioClimateEntity(CoordinatorEntity, ClimateEntity):
 
     async def async_set_temperature(self, **kwargs):
         """Set new target temperatures."""
+        if self._dataservice.get_device().lastConfig.sentio.vacationSettings.vacationMode == VacationMode.VACATION_MODE_ON:
+            raise ValueError("Device is in vacation mode, cannot set temperature.")
+        if self._dataservice.get_device().lastConfig.sentio.standbyMode == StandbyMode.STANDBY_MODE_ON:
+            raise ValueError("Device is in standby mode, cannot set temperature.")
         if kwargs.get(ATTR_TEMPERATURE) is not None:
             await self._dataservice.set_new_temperature(
                 self._room_id, kwargs.get(ATTR_TEMPERATURE)
             )
             await self.coordinator.async_request_refresh()
-
-    def turn_away_mode_on(self):
-        """Turn away mode on."""
-        self._away = True
-        # self._device.set_location_to_frost()
-
-    def turn_away_mode_off(self):
-        """Turn away mode off."""
-        self._away = False
-        # self._device.set_temperature_to_manual()
 
     @property
     def hvac_action(self):
@@ -172,17 +189,27 @@ class WavinSentioClimateEntity(CoordinatorEntity, ClimateEntity):
         temp_room = self._dataservice.get_room(self._room_id)
         if temp_room.temperatureState == "TEMPERATURE_STATE_HEATING":
             return HVACAction.HEATING
+        if temp_room.temperatureState == "TEMPERATURE_STATE_COOLING":
+            return HVACAction.COOLING
         return HVACAction.IDLE
 
     @property
     def hvac_mode(self):
         """Return the current HVAC mode."""
-        return HVACMode.HEAT
+        if( self._dataservice.get_device().lastConfig.sentio.hcMode == HCMode.HC_MODE_HEATING):
+            return HVACMode.HEAT
+        if( self._dataservice.get_device().lastConfig.sentio.hcMode == HCMode.HC_MODE_COOLING):
+            return HVACMode.COOL
+        raise ValueError("Unknown HVAC mode")
 
     @property
     def hvac_modes(self):
         """Return the list of available operation modes."""
         return self._hvac_modes
+
+    async def async_set_hvac_mode(self, hvac_mode):
+        """Set new target hvac mode."""
+        raise ValueError("You cannot set the HVAC mode directly.")
 
     @property
     def unique_id(self):
@@ -215,10 +242,4 @@ class WavinSentioClimateEntity(CoordinatorEntity, ClimateEntity):
         if temp_room is not None:
             attrs["current_temperature_floor"] = temp_room.floorTemperature
             attrs["current_temperature_air"] = temp_room.airTemperature
-            #TODO: Add support for low battery
-            #if "peripheryBatteryLow" in temp_room["warnings"]:
-                #attrs["low_battery"] = True
-            #else:
-                #attrs["low_battery"] = False
-
         return attrs

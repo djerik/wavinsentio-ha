@@ -1,26 +1,32 @@
-from datetime import timedelta
-import logging
+"""Wavin Sentio Outdoor Temperature Sensor integration for Home Assistant."""
 
-from homeassistant.components.sensor import SensorEntity
-
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.const import UnitOfTemperature
-
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from wavinsentio.wavinsentio import OutdoorTemperatureSensor
 
-from .const import DOMAIN, CONF_DEVICE_NAME
-
-_LOGGER = logging.getLogger(__name__)
-
-UPDATE_DELAY = timedelta(seconds=120)
+from . import WavinSentioDataCoordinator
+from .const import CONF_DEVICE_NAME, DOMAIN
 
 
-async def async_setup_entry(hass, entry, async_add_entities):
+async def async_setup_entry(hass: HomeAssistant, entry, async_add_entities):
+    """Set up the Wavin Sentio outdoor temperature sensor entity.
+
+    Args:
+        hass: Home Assistant instance.
+        entry: Config entry for the integration.
+        async_add_entities: Function to add entities asynchronously.
+
+    """
     dataservice = hass.data[DOMAIN].get("coordinator"+entry.data[CONF_DEVICE_NAME])
 
-    outdoor_temperature_sensor = WavinSentioOutdoorTemperatureSensor(dataservice)
 
-    entities = []
-    entities.append(outdoor_temperature_sensor)
+    if not dataservice or not dataservice.get_device().lastConfig.sentio.outdoorTemperatureSensors:
+        return
+
+    entities = [(WavinSentioOutdoorTemperatureSensor(dataservice,outdoorTemperatureSensor))
+                for outdoorTemperatureSensor in dataservice.get_device().lastConfig.sentio.outdoorTemperatureSensors]
 
     async_add_entities(entities)
 
@@ -28,11 +34,12 @@ async def async_setup_entry(hass, entry, async_add_entities):
 class WavinSentioOutdoorTemperatureSensor(CoordinatorEntity, SensorEntity):
     """Representation of an Outdoor Temperature Sensor."""
 
-    def __init__(self, dataservice):
+    def __init__(self, dataservice : WavinSentioDataCoordinator, outdoorTemperatureSensor: OutdoorTemperatureSensor) -> None:
         """Initialize the sensor."""
         super().__init__(dataservice)
         self._state = None
         self._dataservice = dataservice
+        self._outdoorTemperatureSensor = outdoorTemperatureSensor
 
     @property
     def name(self) -> str:
@@ -42,7 +49,9 @@ class WavinSentioOutdoorTemperatureSensor(CoordinatorEntity, SensorEntity):
     @property
     def state(self):
         """Return the state of the sensor."""
-        self._state = self._dataservice.get_device().outdoorTemperature
+        for outdoorTemperatureSensor in self._dataservice.get_device().lastConfig.sentio.outdoorTemperatureSensors:
+            if outdoorTemperatureSensor.id == self._outdoorTemperatureSensor.id:
+                self._state = outdoorTemperatureSensor.outdoorTemperature
         return self._state
 
     @property
@@ -52,24 +61,22 @@ class WavinSentioOutdoorTemperatureSensor(CoordinatorEntity, SensorEntity):
 
     @property
     def device_class(self):
-        return "temperature"
+        """Return the device class for the sensor."""
+        return SensorDeviceClass.TEMPERATURE
 
     @property
     def unique_id(self):
         """Return the ID of this device."""
-        return self._dataservice.get_device().serialNumber + "-OutdoorTemperature"
+        return f"OutdoorTemperature-{self._outdoorTemperatureSensor.id}"
 
     @property
     def device_info(self):
-        temp_device = self._dataservice.get_device()
-        if temp_device is not None:
-            return {
-                "identifiers": {
-                    # Serial numbers are unique identifiers within a specific domain
-                    (DOMAIN, self.unique_id)
-                },
-                "name": self.name,
-                "manufacturer": "Wavin",
-                "model": "Sentio",
-            }
-        return
+        """Return device information for Home Assistant device registry."""
+        return {
+            "identifiers": {
+                (DOMAIN, self.unique_id)
+            },
+            "name": self.name,
+            "manufacturer": "Wavin",
+            "model": "Sentio",
+        }
