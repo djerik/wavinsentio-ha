@@ -5,6 +5,7 @@ import logging
 
 from homeassistant import config_entries, core
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
+from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from wavinsentio.wavinsentio import (
@@ -142,3 +143,4 @@ class WavinSentioDataCoordinator(DataUpdateCoordinator):
         """Set the vacation mode until value."""
         _LOGGER.debug("Setting vacation mode until: %s", value)
         return self.hass.async_add_executor_job(self.api.set_vacation_mode_until, self.device_name, value)
+
