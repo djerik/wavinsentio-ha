@@ -14,6 +14,7 @@ from wavinsentio.wavinsentio import (
     StandbyMode,
     UnauthorizedException,
     VacationMode,
+    HCMode,
     WavinSentio,
 )
 
@@ -21,7 +22,7 @@ from .const import CONF_DEVICE_NAME, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: list[str] = ["climate", "sensor", "switch","datetime"]
+PLATFORMS: list[str] = ["climate", "sensor", "switch", "datetime", "select"]
 
 async def async_setup_entry(hass: core.HomeAssistant, entry: config_entries.ConfigEntry) -> bool:
     """Set up Wavin Sentio from a config entry."""
@@ -122,6 +123,13 @@ class WavinSentioDataCoordinator(DataUpdateCoordinator):
     def turn_off_standby(self):
         """Turn off standby mode for the device."""
         self.hass.async_add_executor_job(self.api.set_standby_mode, self.device_name, StandbyMode.STANDBY_MODE_OFF)
+
+    # coordinator (__init__.py)
+    def turn_on_cooling_mode(self):
+        self.api.set_HC_mode(self.device_name, HCMode.HC_MODE_COOLING.value)
+
+    def turn_on_heating_mode(self):
+        self.api.set_HC_mode(self.device_name, HCMode.HC_MODE_HEATING.value)
 
     def turn_on_vacation_mode_device(self):
         """Turn on vacation mode for the device."""
