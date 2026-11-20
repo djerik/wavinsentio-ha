@@ -22,10 +22,31 @@
       }
     },
     "error": {
-      "auth_error": "Authorization failed, check username and password."
+      "auth_error": "Authorization failed, check username and password.",
+      "cannot_connect": "Could not reach Wavin Sentio, try again later."
     },
     "abort": {
-      "reauth_successful": "New login info has been saved"
+      "reauth_successful": "New login info has been saved",
+      "no_devices": "No supported Wavin Sentio devices were found on this account."
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "peripheral_lost": {
+        "name": "Sensor lost"
+      },
+      "frost_protection": {
+        "name": "Frost protection"
+      }
+    },
+    "select": {
+      "hc_mode": {
+        "name": "Heating/cooling mode",
+        "state": {
+          "heating": "Heating",
+          "cooling": "Cooling"
+        }
+      }
     }
   }
 }

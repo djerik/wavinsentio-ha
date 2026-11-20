@@ -7,7 +7,11 @@ import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
 import homeassistant.helpers.config_validation as cv
-from wavinsentio.wavinsentio import UnauthorizedException, WavinSentio
+from wavinsentio.wavinsentio import (
+    UnauthorizedException,
+    WavinSentio,
+    WavinSentioException,
+)
 
 from .const import CONF_DEVICE_NAME, DOMAIN
 
@@ -55,13 +59,21 @@ class WavinSentioConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             api = await self.hass.async_add_executor_job(
                 WavinSentio, self._email, self._password
             )
+            devices = await self.hass.async_add_executor_job(api.get_devices)
         except UnauthorizedException:
             errors["base"] = "auth_error"
+        except WavinSentioException:
+            errors["base"] = "cannot_connect"
+        if errors:
             return self.async_show_form(
                 step_id="user", data_schema=AUTH_SCHEMA, errors=errors
             )
 
-        self._devices  = await self.hass.async_add_executor_job(api.get_devices)
+        # Controllers that are offline and never upgraded report no configuration
+        # (no rooms), so there is nothing to set up for them.
+        self._devices = [d for d in devices if d.lastConfig.sentio.rooms]
+        if not self._devices:
+            return self.async_abort(reason="no_devices")
 
         all_devices = {d.name:d.lastConfig.sentio.titlePersonalized for d in self._devices}
 

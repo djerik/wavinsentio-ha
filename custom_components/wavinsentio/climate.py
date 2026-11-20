@@ -98,6 +98,12 @@ class WavinSentioClimateEntity(CoordinatorEntity, ClimateEntity):
             return temp_room.setpointTemperature
         return None
 
+    # Home Assistant 2026.11 renamed these members. Providing both names keeps
+    # older versions working and silences the deprecation warning on newer ones.
+    native_temperature_unit = temperature_unit
+    native_current_temperature = current_temperature
+    native_target_temperature = target_temperature
+
     @property
     def min_temp(self):
         """Return the minimum temperature."""
@@ -141,12 +147,12 @@ class WavinSentioClimateEntity(CoordinatorEntity, ClimateEntity):
         if preset_mode == "Vacation" and self._dataservice.get_device().lastConfig.sentio.vacationSettings.vacationMode != VacationMode.VACATION_MODE_ON:
             raise ValueError("Device is not in vacation mode, cannot set preset.")
         if preset_mode == "Vacation":
-            self._dataservice.turn_on_vacation_mode_room(
+            await self._dataservice.turn_on_vacation_mode_room(
                 self._room_id
             )
         else:
             if self._dataservice.get_device().lastConfig.sentio.vacationSettings.vacationMode == VacationMode.VACATION_MODE_ON:
-                self._dataservice.turn_off_vacation_mode_room(
+                await self._dataservice.turn_off_vacation_mode_room(
                     self._room_id
                 )
             temp_room = self._dataservice.get_room(self._room_id)
@@ -154,7 +160,7 @@ class WavinSentioClimateEntity(CoordinatorEntity, ClimateEntity):
                 if mode == preset_mode:
                     for preset in temp_room.temperaturePresets:
                         if preset.type == details.get("type") and preset.hcMode == self._dataservice.get_device().lastConfig.sentio.hcMode.value:
-                            self._dataservice.set_new_temperature(
+                            await self._dataservice.set_new_temperature(
                                 self._room_id, preset.setpointTemperature
                             )
                             break
@@ -200,7 +206,7 @@ class WavinSentioClimateEntity(CoordinatorEntity, ClimateEntity):
             return HVACMode.HEAT
         if( self._dataservice.get_device().lastConfig.sentio.hcMode == HCMode.HC_MODE_COOLING):
             return HVACMode.COOL
-        raise ValueError("Unknown HVAC mode")
+        return None
 
     @property
     def hvac_modes(self):
@@ -242,4 +248,7 @@ class WavinSentioClimateEntity(CoordinatorEntity, ClimateEntity):
         if temp_room is not None:
             attrs["current_temperature_floor"] = temp_room.floorTemperature
             attrs["current_temperature_air"] = temp_room.airTemperature
+            dehumidifier_state = getattr(temp_room, "dehumidifierState", None)
+            if dehumidifier_state is not None:
+                attrs["dehumidifier_state"] = dehumidifier_state
         return attrs

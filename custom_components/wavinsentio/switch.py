@@ -41,12 +41,12 @@ class WavinSentioStandbySwitchEntity(CoordinatorEntity, SwitchEntity):
 
     async def async_turn_on(self, **kwargs):
         """Turn on the standby mode."""
-        self._dataservice.turn_on_standby()
+        await self._dataservice.turn_on_standby()
         await self.coordinator.async_request_refresh()
 
     async def async_turn_off(self, **kwargs):
         """Turn off the standby mode."""
-        self._dataservice.turn_off_standby()
+        await self._dataservice.turn_off_standby()
         await self.coordinator.async_request_refresh()
 
     @property
@@ -89,12 +89,12 @@ class WavinSentioVacationSwitchEntity(CoordinatorEntity, SwitchEntity):
 
     async def async_turn_on(self, **kwargs):
         """Turn on the vacation mode."""
-        self._dataservice.turn_on_vacation_mode_device()
+        await self._dataservice.turn_on_vacation_mode_device()
         await self.coordinator.async_request_refresh()
 
     async def async_turn_off(self, **kwargs):
         """Turn off the standby mode."""
-        self._dataservice.turn_off_vacation_mode_device()
+        await self._dataservice.turn_off_vacation_mode_device()
         await self.coordinator.async_request_refresh()
 
     @property

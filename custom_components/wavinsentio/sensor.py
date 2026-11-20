@@ -1,8 +1,13 @@
 """Wavin Sentio sensor platform: room temperature/humidity/floor temperature and outdoor temperature."""
 
-from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
+from homeassistant.components.sensor import (
+    SensorDeviceClass,
+    SensorEntity,
+    SensorStateClass,
+)
 from homeassistant.const import PERCENTAGE, UnitOfTemperature
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from wavinsentio.wavinsentio import OutdoorTemperatureSensor, Room
 
@@ -41,6 +46,8 @@ async def async_setup_entry(hass: HomeAssistant, entry, async_add_entities):
     if not dataservice:
         return
 
+    await _async_migrate_outdoor_ids(hass, entry, dataservice.device_name)
+
     entities = [WavinSentioRoomSensor(dataservice, room, measurement)
                 for room in dataservice.get_rooms()
                 for measurement in ROOM_MEASUREMENTS
@@ -52,8 +59,38 @@ async def async_setup_entry(hass: HomeAssistant, entry, async_add_entities):
     async_add_entities(entities)
 
 
+async def _async_migrate_outdoor_ids(hass: HomeAssistant, entry, device_name: str) -> None:
+    """Scope outdoor sensor IDs with the controller name.
+
+    The sensor ID alone is not unique across controllers, so a second controller
+    on the same account had its outdoor temperature entity rejected.
+    """
+    old_prefix = "OutdoorTemperature-"
+
+    @callback
+    def _new_unique_id(entity_entry: er.RegistryEntry) -> dict | None:
+        if entity_entry.domain == "sensor" and entity_entry.unique_id.startswith(old_prefix):
+            return {"new_unique_id": f"{device_name}-{entity_entry.unique_id}"}
+        return None
+
+    await er.async_migrate_entries(hass, entry.entry_id, _new_unique_id)
+
+    device_registry = dr.async_get(hass)
+    for device in dr.async_entries_for_config_entry(device_registry, entry.entry_id):
+        new_identifiers = {
+            (domain, f"{device_name}-{identifier}")
+            if domain == DOMAIN and identifier.startswith(old_prefix)
+            else (domain, identifier)
+            for domain, identifier in device.identifiers
+        }
+        if new_identifiers != device.identifiers:
+            device_registry.async_update_device(device.id, new_identifiers=new_identifiers)
+
+
 class WavinSentioRoomSensor(CoordinatorEntity, SensorEntity):
     """Representation of a Wavin Sentio room sensor (temperature or humidity)."""
+
+    _attr_state_class = SensorStateClass.MEASUREMENT
 
     def __init__(self, dataservice: WavinSentioDataCoordinator, room: Room, measurement: str) -> None:
         """Initialize the sensor."""
@@ -104,6 +141,10 @@ class WavinSentioRoomSensor(CoordinatorEntity, SensorEntity):
 class WavinSentioOutdoorTemperatureSensor(CoordinatorEntity, SensorEntity):
     """Representation of an Outdoor Temperature Sensor."""
 
+    _attr_device_class = SensorDeviceClass.TEMPERATURE
+    _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
     def __init__(self, dataservice : WavinSentioDataCoordinator, outdoorTemperatureSensor: OutdoorTemperatureSensor) -> None:
         """Initialize the sensor."""
         super().__init__(dataservice)
@@ -117,7 +158,7 @@ class WavinSentioOutdoorTemperatureSensor(CoordinatorEntity, SensorEntity):
         return "Outdoor Temperature"
 
     @property
-    def state(self):
+    def native_value(self):
         """Return the state of the sensor."""
         for outdoorTemperatureSensor in self._dataservice.get_device().lastConfig.sentio.outdoorTemperatureSensors:
             if outdoorTemperatureSensor.id == self._outdoorTemperatureSensor.id:
@@ -125,19 +166,9 @@ class WavinSentioOutdoorTemperatureSensor(CoordinatorEntity, SensorEntity):
         return self._state
 
     @property
-    def unit_of_measurement(self) -> str:
-        """Return the unit of measurement."""
-        return UnitOfTemperature.CELSIUS
-
-    @property
-    def device_class(self):
-        """Return the device class for the sensor."""
-        return SensorDeviceClass.TEMPERATURE
-
-    @property
     def unique_id(self):
         """Return the ID of this device."""
-        return f"OutdoorTemperature-{self._outdoorTemperatureSensor.id}"
+        return f"{self._dataservice.device_name}-OutdoorTemperature-{self._outdoorTemperatureSensor.id}"
 
     @property
     def device_info(self):

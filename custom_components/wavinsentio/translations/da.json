@@ -22,10 +22,31 @@
       }
     },
     "error": {
-      "auth_error": "Login fejlede, check brugernavn og password."
+      "auth_error": "Login fejlede, check brugernavn og password.",
+      "cannot_connect": "Kunne ikke få forbindelse til Wavin Sentio, prøv igen senere."
     },
     "abort": {
-      "reauth_successful": "Nye login oplysninger gemt"
+      "reauth_successful": "Nye login oplysninger gemt",
+      "no_devices": "Der blev ikke fundet nogen understøttede Wavin Sentio-enheder på denne konto."
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "peripheral_lost": {
+        "name": "Føler mistet"
+      },
+      "frost_protection": {
+        "name": "Frostsikring"
+      }
+    },
+    "select": {
+      "hc_mode": {
+        "name": "Varme/køl",
+        "state": {
+          "heating": "Varme",
+          "cooling": "Køl"
+        }
+      }
     }
   }
 }
