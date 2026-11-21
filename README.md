@@ -14,7 +14,19 @@ Afterwards you can go to the Integrations sections and click the add integration
 
 It will automatically add all the thermostats to your Home Assistant installation and show each one as thermostats in the standard lovelace thermostat UI.
 
+## Entities
+For each room:
+- A thermostat (climate entity) with target temperature and presets. Floor temperature, air temperature and dehumidifier state are available as attributes.
+- Sensors for temperature, humidity and floor temperature, when the room reports them.
+- Binary sensors for low battery, sensor lost and frost protection.
+
+For the controller:
+- Switches for standby and vacation mode, and a date/time for when vacation mode ends.
+- A select for heating/cooling mode, when the controller supports both.
+- An outdoor temperature sensor, when one is connected.
+
 ## Changelog
+- 2026-11-21 Version 0.6.0: room sensors (thanks to @GurliGebis), heating/cooling select (thanks to @devboyz089), room notifications, better error handling and several fixes. See the [release notes](https://github.com/djerik/wavinsentio-ha/releases/tag/0.6.0)
 - 2025-11-25 Fix missing timezone in empty vacationModeUntil by bumping wavinsentio package to 0.5.5
 - 2025-08-02 Fix startup problem due to empty vacationModeUntil when never used before
 - 2025-08-02 Fix preset, vacation mode, standby mode, cooling mode and outdoor temperature
